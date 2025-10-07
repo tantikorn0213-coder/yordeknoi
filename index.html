@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ง้อเด่กน้อย – เวอร์ชันหนึ่ง</title>
+  <style>
+    :root{
+      --accent:#ff77a9;
+      --accent-2:#ffd1dc;
+      --text:#333;
+      --bg-light: linear-gradient(180deg,#ffe6f0,#fff);
+      --bg-dark: linear-gradient(180deg,#1a1a2e,#16213e);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+      background: var(--bg-light); color:var(--text); overflow:hidden;
+      transition: background 0.5s, color 0.5s;
+    }
+    body.dark{
+      background: var(--bg-dark); color:#eee;
+    }
+
+    /* Canvas hearts */
+    canvas#heartsCanvas{ position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+    /* Floating emojis */
+    .emoji{ position:fixed; z-index:1; font-size:28px; animation: floatY var(--dur,10s) ease-in-out infinite; opacity:0.95 }
+    @keyframes floatY{
+      0%{ transform: translateY(10vh) }
+      50%{ transform: translateY(-6vh) }
+      100%{ transform: translateY(10vh) }
+    }
+
+    /* Main card */
+    .card{
+      position:relative; z-index:2; max-width:720px; width: calc(100vw - 40px);
+      margin: 8vh auto; background:#fff; border-radius:22px; padding:26px 22px; text-align:center;
+      box-shadow: 0 12px 28px rgba(255,119,169,0.22);
+      border: 3px solid var(--accent-2); transition: background 0.5s, color 0.5s, border-color 0.5s;
+    }
+    body.dark .card{ background:#1f1f2e; border-color:#2b2b44; color:#eee; box-shadow: 0 14px 34px rgba(0,0,0,0.35) }
+
+    .title{
+      font-size:clamp(26px,4vw,38px); font-weight:900; margin:0 0 8px;
+      background: linear-gradient(90deg, #ff77a9, #ff9bc4, #ff77a9);
+      -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:0.4px;
+    }
+    .subtitle{ font-size:clamp(16px,2.8vw,20px); color:#555; margin:0 0 16px }
+    body.dark .subtitle{ color:#cfcfe9 }
+
+    /* Typewriter */
+    .type{ font-size:clamp(16px,2.6vw,20px); line-height:1.65; margin:10px 0 }
+    .highlight{ background:#fff0f5; border-radius:10px; padding:2px 8px; border:1px dashed #ff9bc4 }
+    body.dark .highlight{ background:#2a2340; border-color:#5c4b7a }
+
+    /* Sticker */
+    .sticker{
+      margin:10px auto 6px;
+      max-width:140px; border-radius:16px; box-shadow:0 6px 16px rgba(0,0,0,0.12)
+    }
+
+    /* Actions */
+    .actions{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:14px }
+    .btn{
+      border:none; cursor:pointer; font-weight:800; letter-spacing:0.3px;
+      padding:14px 18px; border-radius:999px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s;
+    }
+    .btn-yes{ background:var(--accent); color:#fff; box-shadow:0 8px 18px rgba(255,119,169,0.35) }
+    .btn-yes:hover{ transform: translateY(-2px) scale(1.02) }
+    .btn-no{
+      background:#ffe6ef; color:#b84b78; border:2px solid var(--accent-2);
+      box-shadow:0 6px 14px rgba(255,209,220,0.40);
+    }
+    .btn-no.dodge{ animation:dodge 0.4s ease forwards }
+    @keyframes dodge{
+      0%{ transform: translateX(0) }
+      33%{ transform: translateX(16px) }
+      66%{ transform: translateX(-16px) }
+      100%{ transform: translateX(0) }
+    }
+
+    /* Status line + toast */
+    .status{ margin-top:10px; font-size:14px; color:#666; min-height:20px }
+    body.dark .status{ color:#cfd0e6 }
+    .toast{
+      position: fixed; left:50%; transform: translateX(-50%);
+      bottom: 94px; z-index:9; background: #fff; color:#333;
+      border:2px solid var(--accent-2); border-radius:14px; padding:10px 14px;
+      box-shadow:0 10px 20px rgba(0,0,0,0.14); opacity:0; pointer-events:none;
+    }
+    body.dark .toast{ background:#2a2a3f; color:#eaeaf7; border-color:#3f3f69 }
+    .toast.show{ animation: pop 1.2s ease forwards }
+    @keyframes pop{
+      0%{ opacity:0; transform: translateX(-50%) translateY(16px) }
+      12%{ opacity:1; transform: translateX(-50%) translateY(0) }
+      80%{ opacity:1 }
+      100%{ opacity:0 }
+    }
+
+    /* Control buttons */
+    #musicBtn,#themeBtn{
+      position:fixed; bottom:20px; z-index:10;
+      background:var(--accent); color:#fff; border:none; border-radius:50%;
+      width:60px; height:60px; font-size:24px; cursor:pointer;
+      box-shadow:0 8px 18px rgba(255,119,169,0.35);
+    }
+    #musicBtn{ right:20px }
+    #themeBtn{ right:90px }
+
+    /* Burst layer for heart confetti */
+    .burst{ position: fixed; inset:0; pointer-events:none; z-index:3 }
+    .burst .piece{ position:absolute; font-size:24px; will-change: transform, opacity }
+
+    /* Surprise overlay */
+    .overlay{
+      position:fixed; inset:0; z-index:8; background: rgba(0,0,0,0.5);
+      display:none; align-items:center; justify-content:center;
+    }
+    .overlay.show{ display:flex }
+    .overlay-box{
+      background:#fff; color:#333; padding:26px 22px; border-radius:18px; text-align:center;
+      box-shadow:0 16px 36px rgba(0,0,0,0.28);
+      max-width: 340px; width: calc(100vw - 60px);
+    }
+    body.dark .overlay-box{ background:#1f1f2e; color:#eee }
+    .count{ font-size:48px; font-weight:900; margin-bottom:10px; color:#ff4d88 }
+    .final-text{ font-size:22px; font-weight:800 }
+
+    /* Confetti fall keyframes */
+    @keyframes fall { to { transform: translateY(100vh) rotate(360deg); opacity:0 } }
+
+    /* Responsive tweaks */
+    @media (max-width:420px){
+      .card{ margin: 6vh auto; padding: 22px 18px }
+      .btn{ padding:12px 16px }
+      #musicBtn,#themeBtn{ width:56px; height:56px; font-size:22px }
+    }
+  </style>
+</head>
+<body>
+    
+  <!-- Controls -->
+  <button id="themeBtn" aria-label="สลับโหมด">🌙</button>
+  <button id="musicBtn" aria-label="เปิด/ปิดเพลง">🎶</button>
+  <audio id="bgm" loop>
+    <source src="https://www.bensound.com/bensound-music/bensound-romantic.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="sfx" src="https://www.soundjay.com/buttons/sounds/button-16.mp3" preload="auto"></audio>
+
+  <!-- Background hearts -->
+  <canvas id="heartsCanvas"></canvas>
+
+  <!-- Floating emojis -->
+  <div class="emoji" style="left:10vw;top:20vh;--dur:12s">💖</div>
+  <div class="emoji" style="left:70vw;top:30vh;--dur:14s">🌸</div>
+  <div class="emoji" style="left:40vw;top:70vh;--dur:11s">🥺</div>
+  <div class="emoji" style="left:80vw;top:60vh;--dur:13s">💞</div>
+
+  <!-- Surprise overlay -->
+  <div class="overlay" id="overlay">
+    <div class="overlay-box">
+      <div class="count" id="count">3</div>
+      <div class="final-text" id="finalText">เตรียมรับความรักนะเด่กน้อย 💖</div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">รักนะคับ รักที่สุดในโลกเลย 💖</div>
+
+  <!-- Burst layer -->
+  <div class="burst" id="burst"></div>
+
+  <!-- Main card -->
+  <main class="card" aria-live="polite">
+    <img class="sticker" alt="cute" src="https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif">
+    <h1 class="title">ขอโทษที่ทำให้เด่กน้อยเสียใจนะ 💔</h1>
+    <p class="subtitle">เค้าอยากง้อเด่กน้อยด้วยใจจริงๆ</p>
+
+    <p id="type" class="type"></p>
+
+    <div class="actions">
+      <button class="btn btn-yes" id="yesBtn">โอเค 💘</button>
+      <button class="btn btn-no"  id="noBtn">ไม่ 😅</button>
+    </div>
+
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </main>
+
+  <script>
+    // Typewriter message
+    const typeElem = document.getElementById('type');
+    const message = [
+      "เค้าขอโทษนะ",
+      "เค้ารักเด่กน้อยมาก",
+      "เค้าก็ทำให้เด่กน้อยเสียใจ",
+      "มาเริ่มใหม่กันมั้ย",
+      "<span class='highlight'>กลับมาเป็นกันเหมือนเดิมกันนะ</span>"
+    ];
+    let mi = 0, ci = 0;
+    function typeNext(){
+      if(mi >= message.length) return;
+      const current = message[mi];
+      if(current.includes("<span")){
+        typeElem.innerHTML += (typeElem.innerHTML ? "<br/>" : "") + current;
+        mi++; ci = 0; setTimeout(typeNext, 600); return;
+      }
+      if(ci === 0) typeElem.innerHTML += (typeElem.innerHTML ? "<br/>" : "");
+      typeElem.innerHTML += current[ci];
+      ci++;
+      if(ci >= current.length){ mi++; ci = 0; setTimeout(typeNext, 600) }
+      else { setTimeout(typeNext, 45) }
+    }
+    setTimeout(typeNext, 600);
+
+    // Hearts background
+    const canvas = document.getElementById('heartsCanvas');
+    const ctx = canvas.getContext('2d');
+    function resize(){ canvas.width = innerWidth; canvas.height = innerHeight }
+    addEventListener('resize', resize); resize();
+    let hearts = Array.from({length:34}, () => makeHeart());
+    function makeHeart(){ return {
+      x: Math.random()*canvas.width, y: canvas.height + Math.random()*80,
+      size: 6 + Math.random()*10, speed: 0.6 + Math.random()*0.8,
+      drift: (Math.random()-0.5)*0.6, hue: 340 + Math.random()*30, alpha: 0.7 + Math.random()*0.3
+    } }
+    function drawHeart(x,y,size,color,alpha){
+      ctx.save(); ctx.translate(x,y); ctx.scale(size/12, size/12);
+      ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.bezierCurveTo(4, -10, 12, -2, 0, 8);
+      ctx.bezierCurveTo(-12, -2, -4, -10, 0, -4);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    function loop(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      hearts.forEach(h=>{
+        h.y -= h.speed; h.x += h.drift;
+        drawHeart(h.x, h.y, h.size, `hsl(${h.hue} 85% 65%)`, h.alpha);
+        if(h.y < -20 || h.x < -40 || h.x > canvas.width+40){ Object.assign(h, makeHeart(), {y: canvas.height + 30}) }
+      });
+      requestAnimationFrame(loop);
+    }
+    loop();
+
+    // Controls
+    const music = document.getElementById('bgm');
+    const sfx   = document.getElementById('sfx');
+    const musicBtn = document.getElementById('musicBtn');
+    const themeBtn = document.getElementById('themeBtn');
+    let playing = false;
+    musicBtn.addEventListener('click', ()=>{
+      if(!playing){ music.play(); musicBtn.textContent = "🔇"; playing = true }
+      else{ music.pause(); musicBtn.textContent = "🎶"; playing = false }
+    });
+    themeBtn.addEventListener('click', ()=>{
+      document.body.classList.toggle('dark');
+      themeBtn.textContent = document.body.classList.contains('dark') ? "☀️" : "🌙";
+      // tiny toast
+      showToast(document.body.classList.contains('dark') ? "โหมดกลางคืน 🌙" : "โหมดกลางวัน ☀️");
+    });
+
+    // Buttons interactions
+    const yesBtn = document.getElementById('yesBtn');
+    const noBtn  = document.getElementById('noBtn');
+    const status = document.getElementById('status');
+    const burst  = document.getElementById('burst');
+
+    // Random cute messages
+    const cuteMessages = [
+      "รักนะ 💖", "อย่าโกรธเลยน้า 🥺", "🍜",
+      "คิดถึงเด่กน้อย 💕", "กอดกันก่อนนะ 🤗", "เด่กน้อยคือโลกทั้งใบของเค้า 🌎",
+      "💞", "🫶"
+    ];
+    function showRandomMessage(){
+      const msg = cuteMessages[Math.floor(Math.random()*cuteMessages.length)];
+      status.textContent = msg;
+      showToast(msg);
+    }
+
+    // Heart burst
+    function heartBurst(x,y){
+      const count = 20;
+      for(let i=0;i<count;i++){
+        const piece = document.createElement('div');
+        piece.className = 'piece';
+        piece.textContent = (i%3===0)? '💖' : (i%3===1)? '💞' : '🌸';
+        const angle = (Math.PI*2)*(i/count);
+        const dist = 40 + Math.random()*90;
+        const tx = x + Math.cos(angle)*dist;
+        const ty = y + Math.sin(angle)*dist;
+        piece.style.left = x+'px';
+        piece.style.top  = y+'px';
+        burst.appendChild(piece);
+        piece.animate([
+          { transform:`translate(0,0) scale(1)`, opacity:1 },
+          { transform:`translate(${tx-x}px, ${ty-y}px) scale(${0.6+Math.random()*0.6})`, opacity:0 }
+        ], { duration: 900+Math.random()*500, easing:'ease-out', fill:'forwards' });
+        setTimeout(()=> piece.remove(), 1200);
+      }
+    }
+
+    // Falling confetti hearts/flowers
+    function confettiFall(){
+      for(let i=0;i<26;i++){
+        const span = document.createElement("span");
+        span.textContent = (i%2===0) ? "💖" : "🌸";
+        span.style.position = "fixed";
+        span.style.left = Math.random()*100+"vw";
+        span.style.top = "-24px";
+        span.style.fontSize = (20+Math.random()*22)+"px";
+        span.style.animation = `fall ${3+Math.random()*2.2}s linear forwards`;
+        document.body.appendChild(span);
+        setTimeout(()=>span.remove(), 5200);
+      }
+    }
+
+    // Toast popup
+    const toast = document.getElementById('toast');
+    function showToast(text){
+      toast.textContent = text;
+      toast.classList.remove('show');
+      void toast.offsetWidth; // reflow
+      toast.classList.add('show');
+      setTimeout(()=> toast.classList.remove('show'), 1400);
+    }
+
+    // Surprise countdown overlay
+    const overlay = document.getElementById('overlay');
+    const countEl = document.getElementById('count');
+    const finalText = document.getElementById('finalText');
+    function surprise(){
+      overlay.classList.add('show');
+      finalText.textContent = "เตรียมรับความรักนะ 💖";
+      let c = 3; countEl.textContent = c;
+      const t = setInterval(()=>{
+        c--; countEl.textContent = c;
+        if(c<=0){
+          clearInterval(t);
+          finalText.textContent = "รักเด่กน้อยที่สุดในโลกเลยนะ 💘";
+          setTimeout(()=> overlay.classList.remove('show'), 1200);
+        }
+      }, 600);
+    }
+
+    // Yes button: play sfx, burst, confetti, random message, optional surprise
+    yesBtn.addEventListener('click', (e)=>{
+      try{ sfx.currentTime = 0; sfx.play() }catch{}
+      const rect = yesBtn.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top  + rect.height/2;
+      heartBurst(cx, cy);
+      confettiFall();
+      showRandomMessage();
+      surprise();
+    });
+    yesBtn.addEventListener('touchstart', ()=> { try{ sfx.currentTime=0; sfx.play() }catch{} }, {passive:true});
+
+    // No button: dodge + gentle message
+    function dodge(){
+      noBtn.classList.add('dodge');
+      status.textContent = "โอเค เค้าจะรอและปรับปรุงตัวเองนะ 🫶";
+      showToast("โอเค เค้าจะรอเด่กน้อยนะ 🫶");
+      setTimeout(()=> noBtn.classList.remove('dodge'), 420);
+    }
+    noBtn.addEventListener('mouseenter', dodge);
+    noBtn.addEventListener('click', dodge);
+    noBtn.addEventListener('touchstart', dodge, {passive:true});
+
+    // Accessibility: Enter/Space activate buttons
+    [yesBtn,noBtn].forEach(btn=>{
+      btn.addEventListener('keyup', e=>{
+        if(e.key==='Enter' || e.key===' '){ btn.click() }
+      });
+    });
+  </script>
+</body>
+</html>
